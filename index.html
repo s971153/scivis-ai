@@ -522,15 +522,31 @@ function generate() {
 
   const overlay = document.createElement('div');
   overlay.className = 'loading-overlay';
-  overlay.innerHTML = '<div class="spinner"></div><div style="color:var(--text2);font-size:.85rem">生成中，約需 5-15 秒…</div>';
+  overlay.innerHTML = '<div class="spinner"></div><div style="color:var(--text2);font-size:.85rem">Generating... <span class="timer">0s</span></div>';
   resultArea.appendChild(overlay);
 
+  let seconds = 0;
+  const timer = setInterval(() => {
+    seconds++;
+    const timerEl = overlay.querySelector('.timer');
+    if (timerEl) timerEl.textContent = `${seconds}s`;
+  }, 1000);
+
   const img = new Image();
+  const timeout = setTimeout(() => {
+    clearInterval(timer);
+    img.src = '';
+    overlay.innerHTML = `<div style="color:#f39c12;font-size:.9rem">⏳ 生成超時（30s），API 可能繁忙</div>
+      <button onclick="regenerate()" style="margin-top:.8rem;padding:.5rem 1.5rem;border:1px solid var(--accent);border-radius:8px;background:transparent;color:var(--accent);cursor:pointer;font-size:.85rem">🔄 重試</button>`;
+    generateBtn.disabled = false;
+  }, 30000);
+
   img.onload = () => {
+    clearTimeout(timeout);
+    clearInterval(timer);
     overlay.remove();
     resultArea.insertBefore(img, resultArea.firstChild);
 
-    // Action buttons
     const actions = document.createElement('div');
     actions.className = 'actions';
     actions.innerHTML = `
@@ -541,11 +557,13 @@ function generate() {
     resultArea.appendChild(actions);
     generateBtn.disabled = false;
 
-    // Save to history
     addToHistory(topic, url);
   };
   img.onerror = () => {
-    overlay.innerHTML = '<div style="color:#e74c3c;font-size:.9rem">⚠️ 生成失敗，請稍後再試</div>';
+    clearTimeout(timeout);
+    clearInterval(timer);
+    overlay.innerHTML = `<div style="color:#e74c3c;font-size:.9rem">⚠️ 生成失敗</div>
+      <button onclick="regenerate()" style="margin-top:.8rem;padding:.5rem 1.5rem;border:1px solid var(--accent);border-radius:8px;background:transparent;color:var(--accent);cursor:pointer;font-size:.85rem">🔄 重試</button>`;
     generateBtn.disabled = false;
   };
   img.src = url;

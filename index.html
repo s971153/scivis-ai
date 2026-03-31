@@ -263,6 +263,46 @@
   }
   .badge img { height: 28px; }
 
+  .btn-auth {
+    padding: .45rem 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--accent2);
+    background: transparent;
+    color: var(--accent2);
+    font-size: .82rem;
+    cursor: pointer;
+    transition: all .2s;
+    margin-left: 1rem;
+  }
+  .btn-auth:hover { background: rgba(0, 206, 201, .1); }
+  .btn-auth.signed-in {
+    border-color: #00b894;
+    color: #00b894;
+  }
+  .user-info {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    font-size: .82rem;
+    color: var(--accent2);
+    margin-left: 1rem;
+  }
+  .user-info img {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+  }
+  .premium-badge {
+    display: inline-block;
+    padding: .15rem .5rem;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #f39c12, #e74c3c);
+    color: #fff;
+    font-size: .65rem;
+    font-weight: 600;
+    margin-left: .4rem;
+    vertical-align: middle;
+  }
+
   @media (max-width: 600px) {
     main { padding: 1.2rem 1rem 2rem; }
     h1 { font-size: 1.5rem; }
@@ -277,6 +317,9 @@
   <nav>
     <a href="https://github.com/s971153/scivis-ai" target="_blank">GitHub</a>
     <a href="https://pollinations.ai" target="_blank">Pollinations</a>
+    <span id="authArea">
+      <button class="btn-auth" id="signInBtn" onclick="signIn()">🔑 Sign in with Pollinations</button>
+    </span>
   </nav>
 </header>
 
@@ -298,6 +341,15 @@
       <button class="chip" data-style="technical diagram, blueprint style, neon glow on dark, infographic">📐 技術圖解</button>
       <button class="chip" data-style="surreal, dreamlike, floating elements, soft glow, ethereal atmosphere">🎨 超現實</button>
       <button class="chip" data-style="nature documentary, high detail, macro photography, vivid colors">🌿 自然紀實</button>
+    </div>
+
+    <div style="margin-bottom:1rem">
+      <label>模型 / Model</label>
+      <div class="style-chips" id="models">
+        <button class="chip active" data-model="flux">⚡ Flux <span style="font-size:.7rem;opacity:.6">(免費)</span></button>
+        <button class="chip" data-model="flux-pro" data-premium="1">✨ Flux Pro <span class="premium-badge">POLLEN</span></button>
+        <button class="chip" data-model="gptimage" data-premium="1">🧠 GPT Image <span class="premium-badge">POLLEN</span></button>
+      </div>
     </div>
 
     <div style="margin-bottom:1rem">
@@ -345,7 +397,79 @@ const galleryGrid = document.getElementById('galleryGrid');
 
 let activeStyle = document.querySelector('.chip.active[data-style]').dataset.style;
 let activeW = 1280, activeH = 720;
+let activeModel = 'flux';
+let userApiKey = null;
+const APP_KEY = 'pk_Oxz9g1SSRPPRqkDb';
 const history = JSON.parse(localStorage.getItem('scivis_history') || '[]');
+
+// ── BYOP Auth ──
+function signIn() {
+  const params = new URLSearchParams({
+    redirect_url: location.origin + location.pathname,
+    app_key: APP_KEY,
+  });
+  window.location.href = `https://enter.pollinations.ai/authorize?${params}`;
+}
+
+function signOut() {
+  userApiKey = null;
+  localStorage.removeItem('scivis_apikey');
+  updateAuthUI();
+  updateModelChips();
+}
+
+function updateAuthUI() {
+  const area = document.getElementById('authArea');
+  if (userApiKey) {
+    area.innerHTML = `<span class="user-info">🌼 已登入</span><button class="btn-auth signed-in" onclick="signOut()">登出</button>`;
+  } else {
+    area.innerHTML = `<button class="btn-auth" id="signInBtn" onclick="signIn()">🔑 Sign in with Pollinations</button>`;
+  }
+}
+
+function updateModelChips() {
+  document.querySelectorAll('#models .chip[data-premium]').forEach(chip => {
+    chip.disabled = !userApiKey;
+    chip.style.opacity = userApiKey ? '1' : '.4';
+    chip.title = userApiKey ? '' : '需要登入才能使用';
+  });
+  if (!userApiKey && activeModel !== 'flux') {
+    activeModel = 'flux';
+    document.querySelectorAll('#models .chip').forEach(c => c.classList.remove('active'));
+    document.querySelector('#models .chip[data-model="flux"]').classList.add('active');
+  }
+}
+
+// Check for API key in URL fragment (redirect from auth)
+(function checkAuth() {
+  const hash = location.hash;
+  if (hash.includes('api_key=')) {
+    const params = new URLSearchParams(hash.slice(1));
+    const key = params.get('api_key');
+    if (key) {
+      userApiKey = key;
+      localStorage.setItem('scivis_apikey', key);
+      history.replaceState(null, '', location.pathname);
+    }
+  } else {
+    userApiKey = localStorage.getItem('scivis_apikey') || null;
+  }
+  updateAuthUI();
+  updateModelChips();
+})();
+
+// Model chips
+document.getElementById('models').addEventListener('click', e => {
+  const chip = e.target.closest('.chip');
+  if (!chip) return;
+  if (chip.dataset.premium && !userApiKey) {
+    alert('請先登入 Pollinations 帳號才能使用付費模型');
+    return;
+  }
+  document.querySelectorAll('#models .chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  activeModel = chip.dataset.model;
+});
 
 // Style chips
 document.getElementById('styles').addEventListener('click', e => {
@@ -378,7 +502,10 @@ function generate() {
   const seed = Math.floor(Math.random() * 999999);
   const prompt = `${topic}, ${activeStyle}, centered subject, no text, no watermark`;
   const encodedPrompt = encodeURIComponent(prompt);
-  const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${activeW}&height=${activeH}&seed=${seed}&model=flux&nologo=true&enhance=true`;
+  let url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${activeW}&height=${activeH}&seed=${seed}&model=${activeModel}&nologo=true&enhance=true`;
+  if (userApiKey && activeModel !== 'flux') {
+    url += `&token=${userApiKey}`;
+  }
 
   // Show loading
   generateBtn.disabled = true;

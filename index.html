@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SciVis AI — 科普插圖產生器</title>
+<meta name="description" content="AI-powered science illustration generator using Pollinations.ai. Generate stunning sci-fi style visuals for any science topic.">
+<style>
+  :root {
+    --bg: #0a0e17;
+    --surface: #131a2b;
+    --border: #1e2a42;
+    --accent: #6c5ce7;
+    --accent2: #00cec9;
+    --text: #e0e6f0;
+    --text2: #8892a8;
+    --glow: rgba(108, 92, 231, .35);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  header {
+    width: 100%;
+    padding: 1.5rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    font-size: 1.4rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .logo span { font-weight: 400; opacity: .7; }
+  nav a {
+    color: var(--text2);
+    text-decoration: none;
+    font-size: .85rem;
+    margin-left: 1.5rem;
+    transition: color .2s;
+  }
+  nav a:hover { color: var(--accent2); }
+
+  main {
+    width: 100%;
+    max-width: 860px;
+    padding: 2rem 1.5rem 3rem;
+    flex: 1;
+  }
+  h1 {
+    font-size: 2rem;
+    text-align: center;
+    margin-bottom: .4rem;
+  }
+  .subtitle {
+    text-align: center;
+    color: var(--text2);
+    margin-bottom: 2rem;
+    font-size: .95rem;
+  }
+
+  .controls {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  label {
+    display: block;
+    font-size: .8rem;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: .4rem;
+  }
+  .input-row {
+    display: flex;
+    gap: .75rem;
+    margin-bottom: 1rem;
+  }
+  input[type="text"] {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: .7rem 1rem;
+    color: var(--text);
+    font-size: 1rem;
+    outline: none;
+    transition: border-color .2s;
+  }
+  input[type="text"]:focus { border-color: var(--accent); }
+
+  .style-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-bottom: 1.2rem;
+  }
+  .chip {
+    padding: .4rem .9rem;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text2);
+    font-size: .82rem;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--text); }
+  .chip.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .btn-generate {
+    width: 100%;
+    padding: .85rem;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), #7c5ce7);
+    color: #fff;
+    font-size: 1.05rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .2s, transform .1s;
+  }
+  .btn-generate:hover { opacity: .9; }
+  .btn-generate:active { transform: scale(.98); }
+  .btn-generate:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+  }
+
+  .result-area {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .result-area.empty {
+    min-height: 280px;
+  }
+  .placeholder {
+    color: var(--text2);
+    font-size: .9rem;
+    text-align: center;
+    padding: 2rem;
+  }
+  .placeholder .icon { font-size: 2.5rem; margin-bottom: .8rem; }
+
+  .result-area img {
+    width: 100%;
+    display: block;
+    border-radius: 0;
+  }
+
+  .loading-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 14, 23, .85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .8rem;
+    z-index: 2;
+  }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .actions {
+    display: flex;
+    gap: .75rem;
+    padding: 1rem 1.25rem;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+  .actions button {
+    flex: 1;
+    padding: .55rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text);
+    font-size: .85rem;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .actions button:hover {
+    border-color: var(--accent);
+    background: rgba(108, 92, 231, .1);
+  }
+
+  .gallery {
+    margin-top: 2rem;
+  }
+  .gallery h2 {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+    color: var(--text2);
+  }
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: .75rem;
+  }
+  .gallery-grid img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: transform .2s, border-color .2s;
+  }
+  .gallery-grid img:hover {
+    transform: scale(1.03);
+    border-color: var(--accent);
+  }
+
+  footer {
+    width: 100%;
+    padding: 1.5rem 2rem;
+    text-align: center;
+    border-top: 1px solid var(--border);
+    color: var(--text2);
+    font-size: .8rem;
+  }
+  footer a {
+    color: var(--accent2);
+    text-decoration: none;
+  }
+  footer a:hover { text-decoration: underline; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    margin-bottom: .5rem;
+  }
+  .badge img { height: 28px; }
+
+  @media (max-width: 600px) {
+    main { padding: 1.2rem 1rem 2rem; }
+    h1 { font-size: 1.5rem; }
+    .input-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">SciVis AI <span>· 科普插圖</span></div>
+  <nav>
+    <a href="https://github.com/s971153/scivis-ai" target="_blank">GitHub</a>
+    <a href="https://pollinations.ai" target="_blank">Pollinations</a>
+  </nav>
+</header>
+
+<main>
+  <h1>🔬 科普插圖產生器</h1>
+  <p class="subtitle">輸入任何科學主題，AI 即時生成高品質科幻風格插圖</p>
+
+  <div class="controls">
+    <label for="topic">主題 / Topic</label>
+    <div class="input-row">
+      <input type="text" id="topic" placeholder="例：黑洞、量子糾纏、DNA 雙螺旋、超新星爆炸…" autocomplete="off">
+    </div>
+
+    <label>風格 / Style</label>
+    <div class="style-chips" id="styles">
+      <button class="chip active" data-style="sci-fi abstract, high contrast lighting, particle dynamics, cinematic">🌌 科幻抽象</button>
+      <button class="chip" data-style="microscopic view, bioluminescent, dark background, scientific visualization">🔬 微觀世界</button>
+      <button class="chip" data-style="cosmic, deep space, nebula colors, astronomical photography style">🌠 宇宙深空</button>
+      <button class="chip" data-style="technical diagram, blueprint style, neon glow on dark, infographic">📐 技術圖解</button>
+      <button class="chip" data-style="surreal, dreamlike, floating elements, soft glow, ethereal atmosphere">🎨 超現實</button>
+      <button class="chip" data-style="nature documentary, high detail, macro photography, vivid colors">🌿 自然紀實</button>
+    </div>
+
+    <div style="margin-bottom:1rem">
+      <label for="ratio">畫面比例</label>
+      <div class="style-chips" id="ratios">
+        <button class="chip" data-w="1024" data-h="1024">1:1</button>
+        <button class="chip active" data-w="1280" data-h="720">16:9</button>
+        <button class="chip" data-w="720" data-h="1280">9:16</button>
+      </div>
+    </div>
+
+    <button class="btn-generate" id="generateBtn" onclick="generate()">✨ 生成插圖</button>
+  </div>
+
+  <div class="result-area empty" id="resultArea">
+    <div class="placeholder" id="placeholderText">
+      <div class="icon">🖼️</div>
+      輸入主題並點擊「生成插圖」<br>圖片將在此顯示
+    </div>
+  </div>
+
+  <div class="gallery" id="gallerySection" style="display:none">
+    <h2>📂 歷史記錄</h2>
+    <div class="gallery-grid" id="galleryGrid"></div>
+  </div>
+</main>
+
+<footer>
+  <div class="badge">
+    <img src="https://img.shields.io/badge/Built%20with-Pollinations.ai-8a2be2?style=for-the-badge" alt="Built with Pollinations.ai">
+  </div>
+  <br>
+  Powered by <a href="https://pollinations.ai" target="_blank">Pollinations.ai</a> · 
+  <a href="https://github.com/s971153/scivis-ai" target="_blank">Open Source</a> · 
+  Made for science communication
+</footer>
+
+<script>
+const topicInput = document.getElementById('topic');
+const resultArea = document.getElementById('resultArea');
+const placeholder = document.getElementById('placeholderText');
+const generateBtn = document.getElementById('generateBtn');
+const gallerySection = document.getElementById('gallerySection');
+const galleryGrid = document.getElementById('galleryGrid');
+
+let activeStyle = document.querySelector('.chip.active[data-style]').dataset.style;
+let activeW = 1280, activeH = 720;
+const history = JSON.parse(localStorage.getItem('scivis_history') || '[]');
+
+// Style chips
+document.getElementById('styles').addEventListener('click', e => {
+  const chip = e.target.closest('.chip');
+  if (!chip) return;
+  document.querySelectorAll('#styles .chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  activeStyle = chip.dataset.style;
+});
+
+// Ratio chips
+document.getElementById('ratios').addEventListener('click', e => {
+  const chip = e.target.closest('.chip');
+  if (!chip) return;
+  document.querySelectorAll('#ratios .chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  activeW = parseInt(chip.dataset.w);
+  activeH = parseInt(chip.dataset.h);
+});
+
+// Enter key
+topicInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') generate();
+});
+
+function generate() {
+  const topic = topicInput.value.trim();
+  if (!topic) { topicInput.focus(); return; }
+
+  const seed = Math.floor(Math.random() * 999999);
+  const prompt = `${topic}, ${activeStyle}, centered subject, no text, no watermark`;
+  const encodedPrompt = encodeURIComponent(prompt);
+  const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${activeW}&height=${activeH}&seed=${seed}&model=flux&nologo=true&enhance=true`;
+
+  // Show loading
+  generateBtn.disabled = true;
+  resultArea.classList.remove('empty');
+  placeholder.style.display = 'none';
+
+  // Remove old image/actions
+  const oldImg = resultArea.querySelector('img');
+  const oldActions = resultArea.querySelector('.actions');
+  const oldOverlay = resultArea.querySelector('.loading-overlay');
+  if (oldImg) oldImg.remove();
+  if (oldActions) oldActions.remove();
+  if (oldOverlay) oldOverlay.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'loading-overlay';
+  overlay.innerHTML = '<div class="spinner"></div><div style="color:var(--text2);font-size:.85rem">生成中，約需 5-15 秒…</div>';
+  resultArea.appendChild(overlay);
+
+  const img = new Image();
+  img.onload = () => {
+    overlay.remove();
+    resultArea.insertBefore(img, resultArea.firstChild);
+
+    // Action buttons
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+    actions.innerHTML = `
+      <button onclick="downloadImage('${url}', '${topic}')">⬇️ 下載</button>
+      <button onclick="window.open('${url}', '_blank')">🔗 開啟原圖</button>
+      <button onclick="regenerate()">🔄 換一張</button>
+    `;
+    resultArea.appendChild(actions);
+    generateBtn.disabled = false;
+
+    // Save to history
+    addToHistory(topic, url);
+  };
+  img.onerror = () => {
+    overlay.innerHTML = '<div style="color:#e74c3c;font-size:.9rem">⚠️ 生成失敗，請稍後再試</div>';
+    generateBtn.disabled = false;
+  };
+  img.src = url;
+}
+
+function regenerate() {
+  generate();
+}
+
+function downloadImage(url, topic) {
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `scivis_${topic.replace(/\s+/g, '_').substring(0, 30)}.png`;
+  a.target = '_blank';
+  a.click();
+}
+
+function addToHistory(topic, url) {
+  history.unshift({ topic, url, time: Date.now() });
+  if (history.length > 20) history.pop();
+  localStorage.setItem('scivis_history', JSON.stringify(history));
+  renderGallery();
+}
+
+function renderGallery() {
+  if (history.length === 0) { gallerySection.style.display = 'none'; return; }
+  gallerySection.style.display = 'block';
+  galleryGrid.innerHTML = history.map(item =>
+    `<img src="${item.url}" alt="${item.topic}" title="${item.topic}" loading="lazy" onclick="window.open(this.src,'_blank')">`
+  ).join('');
+}
+
+// Initial render
+renderGallery();
+</script>
+</body>
+</html>
